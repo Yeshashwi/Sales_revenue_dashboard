@@ -1,0 +1,17 @@
+Date,Region,Category,Product,Units,Revenue
+2026-01-12,South,Electronics,OnePlus Nord 4,15,419985
+2026-01-18,West,Fashion,Fabindia Kurta Set,42,104958
+2026-01-25,North,Home & Kitchen,Prestige Induction Cooktop,28,83972
+2026-02-04,East,Groceries,Tata Sampann Dal Combo,95,42750
+2026-02-14,South,Electronics,boAt Airdopes 141,65,84435
+2026-02-22,West,Electronics,Samsung Galaxy M35,20,399980
+2026-03-08,North,Fashion,Allen Solly Formal Shirt,35,69965
+2026-03-19,East,Home & Kitchen,Milton Thermosteel Flask,50,49950
+2026-04-05,South,Groceries,Aashirvaad Atta 10kg,110,52800
+2026-04-17,West,Home & Kitchen,Philips Air Fryer,18,143982
+2026-05-11,North,Electronics,Lenovo IdeaPad Slim 3,10,459900
+2026-05-26,East,Fashion,Biba Anarkali Suit,24,71976
+2026-06-09,South,Electronics,Sony WH-CH520 Headphones,30,134970
+2026-06-21,West,Groceries,Fortune Sunlite Oil 5L,80,56000
+2026-07-14,North,Home & Kitchen,Borosil Glass Lunchbox,45,40455
+2026-08-03,East,Electronics,Realme Narzo 70 Pro,22,417978

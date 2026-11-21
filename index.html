@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales & Revenue Analysis Dashboard | Data Analytics Internship</title>
+    
+    <!-- Google Fonts: Inter for clean, readable UI -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS via CDN for responsive, modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js via CDN for interactive data visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- PapaParse via CDN for fast CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
+    <!-- SheetJS (xlsx) via CDN for Excel (.xlsx / .xls) file import -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen">
+
+    <!-- Toast Notification Banner (Replaces native alert) -->
+    <div id="toastBanner" class="fixed bottom-4 right-4 z-50 hidden transform transition-all duration-300 translate-y-4 opacity-0">
+        <div class="bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-medium">
+            <span id="toastIcon" class="text-emerald-400">●</span>
+            <span id="toastMessage">Dataset loaded successfully!</span>
+        </div>
+    </div>
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                    ₹
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">Sales & Revenue Analytics</h1>
+                    <p class="text-xs text-slate-500">BTech Data Analytics Internship Project • Interactive BI Dashboard</p>
+                </div>
+            </div>
+
+            <!-- Action Controls: Upload CSV/Excel & Download Sample -->
+            <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+                <button onclick="downloadSampleCSV()" class="px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    Sample CSV
+                </button>
+
+                <label for="fileUpload" class="cursor-pointer px-4 py-2 text-xs sm:text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-sm transition flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                    Import Excel / CSV
+                    <input id="fileUpload" type="file" accept=".csv, .xlsx, .xls" class="hidden" onchange="handleFileUpload(event)">
+                </label>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Dashboard Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Interactive Slicers / Filters Card -->
+        <section class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+                    <h2 class="text-sm font-semibold text-slate-800 uppercase tracking-wider">Data Slicers & Filters</h2>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span id="recordCountBadge" class="text-xs font-medium px-2.5 py-1 rounded-full bg-brand-50 text-brand-700">Showing 36 records</span>
+                    <button onclick="resetFilters()" class="text-xs font-medium text-rose-600 hover:text-rose-700 hover:underline">Reset Filters</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Region Slicer -->
+                <div>
+                    <label for="regionFilter" class="block text-xs font-medium text-slate-500 mb-1">Region</label>
+                    <select id="regionFilter" onchange="applyFilters()" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:border-brand-500 focus:bg-white focus:outline-none">
+                        <option value="ALL">All Regions</option>
+                    </select>
+                </div>
+
+                <!-- Category Slicer -->
+                <div>
+                    <label for="categoryFilter" class="block text-xs font-medium text-slate-500 mb-1">Product Category</label>
+                    <select id="categoryFilter" onchange="applyFilters()" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:border-brand-500 focus:bg-white focus:outline-none">
+                        <option value="ALL">All Categories</option>
+                    </select>
+                </div>
+
+                <!-- Quarter Slicer -->
+                <div>
+                    <label for="quarterFilter" class="block text-xs font-medium text-slate-500 mb-1">Quarter</label>
+                    <select id="quarterFilter" onchange="applyFilters()" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:border-brand-500 focus:bg-white focus:outline-none">
+                        <option value="ALL">All Quarters</option>
+                        <option value="Q1">Q1 (Jan – Mar)</option>
+                        <option value="Q2">Q2 (Apr – Jun)</option>
+                        <option value="Q3">Q3 (Jul – Sep)</option>
+                        <option value="Q4">Q4 (Oct – Dec)</option>
+                    </select>
+                </div>
+
+                <!-- Start/End Date Quick Filter -->
+                <div>
+                    <label for="monthFilter" class="block text-xs font-medium text-slate-500 mb-1">Specific Month</label>
+                    <select id="monthFilter" onchange="applyFilters()" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:border-brand-500 focus:bg-white focus:outline-none">
+                        <option value="ALL">All Months</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4 Executive KPI Cards -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- KPI 1: Total Revenue -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Revenue</span>
+                    <span class="p-2 rounded-xl bg-emerald-50 text-emerald-600 text-sm font-bold">₹</span>
+                </div>
+                <div class="mt-3">
+                    <h3 id="kpiRevenue" class="text-2xl sm:text-3xl font-bold text-slate-900">₹0</h3>
+                    <p id="kpiRevenueSub" class="text-xs text-slate-500 mt-1">Gross sales across selection</p>
+                </div>
+            </div>
+
+            <!-- KPI 2: Total Units / Orders Sold -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Units Sold</span>
+                    <span class="p-2 rounded-xl bg-blue-50 text-blue-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                    </span>
+                </div>
+                <div class="mt-3">
+                    <h3 id="kpiUnits" class="text-2xl sm:text-3xl font-bold text-slate-900">0</h3>
+                    <p id="kpiOrdersSub" class="text-xs text-slate-500 mt-1">Across 0 transactions</p>
+                </div>
+            </div>
+
+            <!-- KPI 3: Average Order Value (AOV) -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Avg. Order Value</span>
+                    <span class="p-2 rounded-xl bg-amber-50 text-amber-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    </span>
+                </div>
+                <div class="mt-3">
+                    <h3 id="kpiAOV" class="text-2xl sm:text-3xl font-bold text-slate-900">₹0</h3>
+                    <p class="text-xs text-slate-500 mt-1">Revenue per transaction</p>
+                </div>
+            </div>
+
+            <!-- KPI 4: Top Performing Category -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Top Category</span>
+                    <span class="p-2 rounded-xl bg-purple-50 text-purple-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                    </span>
+                </div>
+                <div class="mt-3">
+                    <h3 id="kpiTopCategory" class="text-xl sm:text-2xl font-bold text-slate-900 truncate">-</h3>
+                    <p id="kpiTopCategorySub" class="text-xs text-emerald-600 font-medium mt-1">0% of total revenue</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Automated Business Insights Banner -->
+        <section class="bg-gradient-to-r from-brand-50 to-indigo-50 border border-brand-100 rounded-2xl p-5">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-brand-600 text-white text-xs font-bold">AI</span>
+                <h2 class="text-sm font-bold text-slate-900">Automated Business Insights</h2>
+            </div>
+            <div id="insightsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-slate-700">
+                <!-- Populated dynamically via JS -->
+            </div>
+        </section>
+
+        <!-- Primary Charts Grid (Row 1) -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Monthly Revenue Trend (Line Chart - Takes 2 columns on desktop) -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2 flex flex-col">
+                <div class="mb-4">
+                    <h3 class="text-base font-bold text-slate-900">Monthly Revenue Trend</h3>
+                    <p class="text-xs text-slate-500">Time-series revenue progression across selected period (₹ INR)</p>
+                </div>
+                <div class="relative flex-1 min-h-[260px] w-full">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Regional Revenue Share (Doughnut Chart - Takes 1 column) -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+                <div class="mb-4">
+                    <h3 class="text-base font-bold text-slate-900">Regional Revenue Share</h3>
+                    <p class="text-xs text-slate-500">Contribution across Indian zones</p>
+                </div>
+                <div class="relative flex-1 min-h-[260px] w-full flex items-center justify-center">
+                    <canvas id="regionChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Secondary Charts Grid (Row 2) -->
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Revenue by Category (Vertical Bar Chart) -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+                <div class="mb-4">
+                    <h3 class="text-base font-bold text-slate-900">Revenue by Category</h3>
+                    <p class="text-xs text-slate-500">Comparative category sales performance</p>
+                </div>
+                <div class="relative flex-1 min-h-[260px] w-full">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Top 5 Performing Products (Horizontal Bar Chart) -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+                <div class="mb-4">
+                    <h3 class="text-base font-bold text-slate-900">Top 5 Performing Products</h3>
+                    <p class="text-xs text-slate-500">Highest revenue-generating SKUs</p>
+                </div>
+                <div class="relative flex-1 min-h-[260px] w-full">
+                    <canvas id="topProductsChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Recent Transactions Preview Table -->
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                    <h3 class="text-base font-bold text-slate-900">Filtered Sales Records (Preview)</h3>
+                    <p class="text-xs text-slate-500">Showing top 10 rows from current slice</p>
+                </div>
+                <span class="text-xs text-slate-400">Supports columns: Date, Region, Category, Product, Units, Revenue</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
+                            <th class="py-3 px-4 font-semibold">Date</th>
+                            <th class="py-3 px-4 font-semibold">Region</th>
+                            <th class="py-3 px-4 font-semibold">Category</th>
+                            <th class="py-3 px-4 font-semibold">Product</th>
+                            <th class="py-3 px-4 font-semibold text-right">Units</th>
+                            <th class="py-3 px-4 font-semibold text-right">Revenue (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataTableBody" class="divide-y divide-slate-100 text-sm text-slate-700">
+                        <!-- Rows populated dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-xs text-slate-400">
+        Sales & Revenue Analysis Dashboard • Built with HTML, Tailwind CSS, Chart.js, PapaParse & SheetJS
+    </footer>
+
+    <!-- Application Logic -->
+    <script>
+        // ==========================================
+        // 1. PRE-LOADED INDIAN RETAIL SAMPLE DATASET
+        // ==========================================
+        const SAMPLE_DATA = [
+            { Date: "2026-01-12", Region: "South", Category: "Electronics", Product: "OnePlus Nord Smartphone", Units: 45, Revenue: 1260000 },
+            { Date: "2026-01-18", Region: "West", Category: "Fashion", Product: "Ethnic Silk Kurta Set", Units: 120, Revenue: 360000 },
+            { Date: "2026-01-25", Region: "North", Category: "Home & Kitchen", Product: "Prestige Induction Cooktop", Units: 85, Revenue: 297500 },
+            { Date: "2026-02-04", Region: "East", Category: "Groceries", Product: "Organic Basmati Rice 5kg", Units: 310, Revenue: 248000 },
+            { Date: "2026-02-14", Region: "South", Category: "Electronics", Product: "boAt Airdopes TWS", Units: 240, Revenue: 359760 },
+            { Date: "2026-02-22", Region: "West", Category: "Electronics", Product: "Dell Inspiron Laptop", Units: 22, Revenue: 1320000 },
+            { Date: "2026-03-05", Region: "North", Category: "Fashion", Product: "Men's Denim Jacket", Units: 95, Revenue: 285000 },
+            { Date: "2026-03-15", Region: "South", Category: "Home & Kitchen", Product: "Philips Air Fryer", Units: 60, Revenue: 540000 },
+            { Date: "2026-03-27", Region: "East", Category: "Electronics", Product: "Samsung 43\" Smart TV", Units: 30, Revenue: 960000 },
+            { Date: "2026-04-08", Region: "West", Category: "Groceries", Product: "Cold Pressed Groundnut Oil", Units: 260, Revenue: 234000 },
+            { Date: "2026-04-19", Region: "North", Category: "Electronics", Product: "OnePlus Nord Smartphone", Units: 52, Revenue: 1456000 },
+            { Date: "2026-04-28", Region: "South", Category: "Fashion", Product: "Handloom Cotton Saree", Units: 110, Revenue: 440000 },
+            { Date: "2026-05-09", Region: "East", Category: "Home & Kitchen", Product: "Milton Thermosteel Flask", Units: 190, Revenue: 171000 },
+            { Date: "2026-05-17", Region: "West", Category: "Electronics", Product: "Samsung 43\" Smart TV", Units: 38, Revenue: 1216000 },
+            { Date: "2026-05-26", Region: "North", Category: "Groceries", Product: "Premium Darjeeling Tea Pack", Units: 280, Revenue: 196000 },
+            { Date: "2026-06-06", Region: "South", Category: "Electronics", Product: "Dell Inspiron Laptop", Units: 28, Revenue: 1680000 },
+            { Date: "2026-06-15", Region: "West", Category: "Fashion", Product: "Running Sports Shoes", Units: 140, Revenue: 490000 },
+            { Date: "2026-06-24", Region: "East", Category: "Electronics", Product: "boAt Airdopes TWS", Units: 210, Revenue: 314790 },
+            { Date: "2026-07-07", Region: "North", Category: "Home & Kitchen", Product: "Philips Air Fryer", Units: 75, Revenue: 675000 },
+            { Date: "2026-07-18", Region: "South", Category: "Groceries", Product: "Organic Basmati Rice 5kg", Units: 340, Revenue: 272000 },
+            { Date: "2026-07-29", Region: "West", Category: "Electronics", Product: "OnePlus Nord Smartphone", Units: 60, Revenue: 1680000 },
+            { Date: "2026-08-11", Region: "North", Category: "Fashion", Product: "Ethnic Silk Kurta Set", Units: 165, Revenue: 495000 },
+            { Date: "2026-08-20", Region: "East", Category: "Electronics", Product: "Dell Inspiron Laptop", Units: 19, Revenue: 1140000 },
+            { Date: "2026-08-29", Region: "South", Category: "Home & Kitchen", Product: "Prestige Induction Cooktop", Units: 110, Revenue: 385000 },
+            { Date: "2026-09-05", Region: "West", Category: "Electronics", Product: "boAt Airdopes TWS", Units: 310, Revenue: 464690 },
+            { Date: "2026-09-16", Region: "North", Category: "Electronics", Product: "Samsung 43\" Smart TV", Units: 44, Revenue: 1408000 },
+            { Date: "2026-09-25", Region: "East", Category: "Fashion", Product: "Handloom Cotton Saree", Units: 135, Revenue: 540000 },
+            { Date: "2026-10-08", Region: "South", Category: "Electronics", Product: "OnePlus Nord Smartphone", Units: 85, Revenue: 2380000 },
+            { Date: "2026-10-19", Region: "North", Category: "Electronics", Product: "Dell Inspiron Laptop", Units: 35, Revenue: 2100000 },
+            { Date: "2026-10-27", Region: "West", Category: "Home & Kitchen", Product: "Philips Air Fryer", Units: 95, Revenue: 855000 },
+            { Date: "2026-11-04", Region: "East", Category: "Fashion", Product: "Ethnic Silk Kurta Set", Units: 210, Revenue: 630000 },
+            { Date: "2026-11-14", Region: "South", Category: "Electronics", Product: "Samsung 43\" Smart TV", Units: 55, Revenue: 1760000 },
+            { Date: "2026-11-23", Region: "North", Category: "Groceries", Product: "Dry Fruits Festive Gift Box", Units: 420, Revenue: 630000 },
+            { Date: "2026-12-05", Region: "West", Category: "Electronics", Product: "Dell Inspiron Laptop", Units: 40, Revenue: 2400000 },
+            { Date: "2026-12-16", Region: "South", Category: "Fashion", Product: "Running Sports Shoes", Units: 180, Revenue: 630000 },
+            { Date: "2026-12-26", Region: "North", Category: "Home & Kitchen", Product: "Prestige Induction Cooktop", Units: 130, Revenue: 455000 }
+        ];
+
+        // Global State Variables
+        let rawData = [];
+        let filteredData = [];
+        let charts = {};
+
+        const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+        // ==========================================
+        // 2. INDIAN CURRENCY & NUMBER FORMATTERS
+        // ==========================================
+        function formatINR(amount) {
+            if (isNaN(amount) || amount === 0) return "₹0";
+            if (amount >= 10000000) {
+                return "₹" + (amount / 10000000).toFixed(2) + " Cr";
+            } else if (amount >= 100000) {
+                return "₹" + (amount / 100000).toFixed(2) + " L";
+            } else {
+                return "₹" + Math.round(amount).toLocaleString('en-IN');
+            }
+        }
+
+        function formatExactINR(amount) {
+            return "₹" + Math.round(amount).toLocaleString('en-IN');
+        }
+
+        function showToast(message, isError = false) {
+            const banner = document.getElementById('toastBanner');
+            const msgEl = document.getElementById('toastMessage');
+            const iconEl = document.getElementById('toastIcon');
+            
+            msgEl.textContent = message;
+            iconEl.className = isError ? "text-rose-400" : "text-emerald-400";
+            
+            banner.classList.remove('hidden');
+            setTimeout(() => {
+                banner.classList.remove('translate-y-4', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                banner.classList.add('translate-y-4', 'opacity-0');
+                setTimeout(() => banner.classList.add('hidden'), 300);
+            }, 3500);
+        }
+
+        // ==========================================
+        // 3. DATA NORMALIZATION & INITIALIZATION
+        // ==========================================
+        function normalizeDataset(records) {
+            return records.map(row => {
+                // Support flexible column header names (case-insensitive)
+                const keys = Object.keys(row);
+                const getVal = (candidates) => {
+                    const foundKey = keys.find(k => candidates.includes(k.trim().toLowerCase()));
+                    return foundKey ? row[foundKey] : null;
+                };
+
+                const rawDate = getVal(['date', 'order date', 'order_date', 'transaction date']) || "2026-01-01";
+                const parsedDate = new Date(rawDate);
+                const validDate = !isNaN(parsedDate.getTime()) ? parsedDate : new Date("2026-01-01");
+                
+                const monthIdx = validDate.getMonth();
+                const quarter = "Q" + (Math.floor(monthIdx / 3) + 1);
+                const monthLabel = MONTH_NAMES[monthIdx];
+
+                const region = String(getVal(['region', 'zone', 'state', 'area']) || "Unassigned").trim();
+                const category = String(getVal(['category', 'product category', 'department']) || "General").trim();
+                const product = String(getVal(['product', 'product name', 'item', 'sku']) || "Standard Item").trim();
+                
+                const units = parseFloat(String(getVal(['units', 'quantity', 'qty', 'orders']) || 1).replace(/[^0-9.-]+/g, "")) || 1;
+                const revenue = parseFloat(String(getVal(['revenue', 'sales', 'amount', 'total', 'total sales']) || 0).replace(/[^0-9.-]+/g, "")) || 0;
+
+                return {
+                    dateStr: validDate.toISOString().split('T')[0],
+                    monthIdx,
+                    monthLabel,
+                    quarter,
+                    region,
+                    category,
+                    product,
+                    units,
+                    revenue
+                };
+            }).filter(item => item.revenue > 0);
+        }
+
+        function loadDataset(records, sourceName = "Sample Dataset") {
+            const cleaned = normalizeDataset(records);
+            if (cleaned.length === 0) {
+                showToast("No valid sales records found. Check column names (Date, Region, Category, Product, Units, Revenue).", true);
+                return;
+            }
+            rawData = cleaned;
+            populateSlicerDropdowns();
+            applyFilters();
+            showToast(`Loaded ${rawData.length} records from ${sourceName}`);
+        }
+
+        // ==========================================
+        // 4. FILE UPLOAD (CSV & EXCEL) & SAMPLE EXPORT
+        // ==========================================
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const fileName = file.name;
+            const ext = fileName.split('.').pop().toLowerCase();
+
+            try {
+                if (ext === 'csv') {
+                    Papa.parse(file, {
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: function(results) {
+                            loadDataset(results.data, fileName);
+                        },
+                        error: function(err) {
+                            showToast("Error parsing CSV: " + err.message, true);
+                        }
+                    });
+                } else if (ext === 'xlsx' || ext === 'xls') {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false });
+                        loadDataset(jsonData, fileName);
+                    };
+                    reader.readAsArrayBuffer(file);
+                } else {
+                    showToast("Unsupported file format. Please upload .csv or .xlsx", true);
+                }
+            } catch (error) {
+                showToast("Failed to process file.", true);
+            }
+            // Reset input so same file can be re-uploaded if needed
+            event.target.value = '';
+        }
+
+        function downloadSampleCSV() {
+            const csv = Papa.unparse(SAMPLE_DATA);
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", "Indian_Retail_Sales_Sample.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("Sample CSV downloaded!");
+        }
+
+        // ==========================================
+        // 5. SLICERS & FILTERING ENGINE
+        // ==========================================
+        function populateSlicerDropdowns() {
+            const regions = [...new Set(rawData.map(d => d.region))].sort();
+            const categories = [...new Set(rawData.map(d => d.category))].sort();
+            const monthsPresent = [...new Set(rawData.map(d => d.monthIdx))].sort((a, b) => a - b);
+
+            const regionSelect = document.getElementById('regionFilter');
+            regionSelect.innerHTML = '<option value="ALL">All Regions</option>' + 
+                regions.map(r => `<option value="${r}">${r}</option>`).join('');
+
+            const catSelect = document.getElementById('categoryFilter');
+            catSelect.innerHTML = '<option value="ALL">All Categories</option>' + 
+                categories.map(c => `<option value="${c}">${c}</option>`).join('');
+
+            const monthSelect = document.getElementById('monthFilter');
+            monthSelect.innerHTML = '<option value="ALL">All Months</option>' + 
+                monthsPresent.map(m => `<option value="${m}">${MONTH_NAMES[m]}</option>`).join('');
+        }
+
+        function resetFilters() {
+            document.getElementById('regionFilter').value = 'ALL';
+            document.getElementById('categoryFilter').value = 'ALL';
+            document.getElementById('quarterFilter').value = 'ALL';
+            document.getElementById('monthFilter').value = 'ALL';
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const selRegion = document.getElementById('regionFilter').value;
+            const selCategory = document.getElementById('categoryFilter').value;
+            const selQuarter = document.getElementById('quarterFilter').value;
+            const selMonth = document.getElementById('monthFilter').value;
+
+            filteredData = rawData.filter(row => {
+                const matchRegion = selRegion === 'ALL' || row.region === selRegion;
+                const matchCategory = selCategory === 'ALL' || row.category === selCategory;
+                const matchQuarter = selQuarter === 'ALL' || row.quarter === selQuarter;
+                const matchMonth = selMonth === 'ALL' || row.monthIdx === parseInt(selMonth);
+                return matchRegion && matchCategory && matchQuarter && matchMonth;
+            });
+
+            document.getElementById('recordCountBadge').textContent = `Showing ${filteredData.length} records`;
+
+            updateKPIs();
+            updateInsights();
+            updateAllCharts();
+            updateTablePreview();
+        }
+
+        // ==========================================
+        // 6. KPI CARDS & AUTOMATED INSIGHTS
+        // ==========================================
+        function updateKPIs() {
+            const totalRevenue = filteredData.reduce((sum, d) => sum + d.revenue, 0);
+            const totalUnits = filteredData.reduce((sum, d) => sum + d.units, 0);
+            const txCount = filteredData.length;
+            const aov = txCount > 0 ? totalRevenue / txCount : 0;
+
+            // Calculate Top Category
+            const catMap = {};
+            filteredData.forEach(d => {
+                catMap[d.category] = (catMap[d.category] || 0) + d.revenue;
+            });
+
+            let topCat = "-";
+            let topCatRev = 0;
+            for (const [cat, rev] of Object.entries(catMap)) {
+                if (rev > topCatRev) {
+                    topCatRev = rev;
+                    topCat = cat;
+                }
+            }
+            const topCatShare = totalRevenue > 0 ? ((topCatRev / totalRevenue) * 100).toFixed(1) : 0;
+
+            // Update DOM
+            document.getElementById('kpiRevenue').textContent = formatINR(totalRevenue);
+            document.getElementById('kpiRevenueSub').textContent = `Exact: ${formatExactINR(totalRevenue)}`;
+            document.getElementById('kpiUnits').textContent = totalUnits.toLocaleString('en-IN');
+            document.getElementById('kpiOrdersSub').textContent = `Across ${txCount} sales records`;
+            document.getElementById('kpiAOV').textContent = formatINR(aov);
+            document.getElementById('kpiTopCategory').textContent = topCat;
+            document.getElementById('kpiTopCategorySub').textContent = `${topCatShare}% of filtered revenue`;
+        }
+
+        function updateInsights() {
+            const container = document.getElementById('insightsContainer');
+            if (filteredData.length === 0) {
+                container.innerHTML = `<p class="col-span-3 text-slate-500">No data available for the selected filter combination. Try resetting filters.</p>`;
+                return;
+            }
+
+            const totalRev = filteredData.reduce((s, d) => s + d.revenue, 0);
+
+            // 1. Highest Revenue Region
+            const regMap = {};
+            filteredData.forEach(d => regMap[d.region] = (regMap[d.region] || 0) + d.revenue);
+            const topRegion = Object.entries(regMap).sort((a, b) => b[1] - a[1])[0];
+            const regShare = ((topRegion[1] / totalRev) * 100).toFixed(1);
+
+            // 2. Peak Revenue Month
+            const monthMap = {};
+            filteredData.forEach(d => monthMap[d.monthLabel] = (monthMap[d.monthLabel] || 0) + d.revenue);
+            const peakMonth = Object.entries(monthMap).sort((a, b) => b[1] - a[1])[0];
+
+            // 3. Best Selling Product
+            const prodMap = {};
+            filteredData.forEach(d => prodMap[d.product] = (prodMap[d.product] || 0) + d.revenue);
+            const topProd = Object.entries(prodMap).sort((a, b) => b[1] - a[1])[0];
+
+            container.innerHTML = `
+                <div class="bg-white/80 p-3.5 rounded-xl border border-brand-100">
+                    <span class="text-xs font-semibold text-brand-600 uppercase">Regional Leader</span>
+                    <p class="mt-1 text-slate-800"><strong>${topRegion[0]} Region</strong> leads sales with <strong>${formatINR(topRegion[1])}</strong> (${regShare}% share).</p>
+                </div>
+                <div class="bg-white/80 p-3.5 rounded-xl border border-brand-100">
+                    <span class="text-xs font-semibold text-emerald-600 uppercase">Peak Performance</span>
+                    <p class="mt-1 text-slate-800">Highest revenue occurred in <strong>${peakMonth[0]}</strong>, generating <strong>${formatINR(peakMonth[1])}</strong>.</p>
+                </div>
+                <div class="bg-white/80 p-3.5 rounded-xl border border-brand-100">
+                    <span class="text-xs font-semibold text-purple-600 uppercase">Star Product</span>
+                    <p class="mt-1 text-slate-800"><strong>${topProd[0]}</strong> is the #1 SKU at <strong>${formatINR(topProd[1])}</strong>.</p>
+                </div>
+            `;
+        }
+
+        // ==========================================
+        // 7. CHART.JS VISUALIZATIONS
+        // ==========================================
+        function updateAllCharts() {
+            renderTrendChart();
+            renderRegionChart();
+            renderCategoryChart();
+            renderTopProductsChart();
+        }
+
+        function renderTrendChart() {
+            const monthlyTotals = new Array(12).fill(0);
+            filteredData.forEach(d => {
+                monthlyTotals[d.monthIdx] += d.revenue;
+            });
+
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            if (charts.trend) charts.trend.destroy();
+
+            charts.trend = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: MONTH_NAMES,
+                    datasets: [{
+                        label: 'Revenue (₹)',
+                        data: monthlyTotals,
+                        borderColor: '#4f46e5',
+                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                        borderWidth: 2.5,
+                        pointBackgroundColor: '#4f46e5',
+                        pointRadius: 4,
+                        fill: true,
+                        tension: 0.35
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => 'Revenue: ' + formatExactINR(ctx.raw)
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { callback: (val) => formatINR(val), font: { size: 11 } },
+                            grid: { color: '#f1f5f9' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { font: { size: 11 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderRegionChart() {
+            const regMap = {};
+            filteredData.forEach(d => regMap[d.region] = (regMap[d.region] || 0) + d.revenue);
+
+            const labels = Object.keys(regMap);
+            const values = Object.values(regMap);
+            const palette = ['#4f46e5', '#10b981', '#f59e0b', '#ec4899', '#06b6d4'];
+
+            const ctx = document.getElementById('regionChart').getContext('2d');
+            if (charts.region) charts.region.destroy();
+
+            charts.region = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: palette.slice(0, labels.length),
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { usePointStyle: true, padding: 16, font: { size: 12 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => ` ${ctx.label}: ${formatINR(ctx.raw)}`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderCategoryChart() {
+            const catMap = {};
+            filteredData.forEach(d => catMap[d.category] = (catMap[d.category] || 0) + d.revenue);
+
+            const sorted = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+            const labels = sorted.map(item => item[0]);
+            const values = sorted.map(item => item[1]);
+
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            if (charts.category) charts.category.destroy();
+
+            charts.category = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Category Revenue',
+                        data: values,
+                        backgroundColor: ['#6366f1', '#14b8a6', '#f59e0b', '#8b5cf6', '#ec4899'],
+                        borderRadius: 8,
+                        maxBarThickness: 48
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => 'Revenue: ' + formatExactINR(ctx.raw)
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { callback: (val) => formatINR(val), font: { size: 11 } },
+                            grid: { color: '#f1f5f9' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { font: { size: 11 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderTopProductsChart() {
+            const prodMap = {};
+            filteredData.forEach(d => prodMap[d.product] = (prodMap[d.product] || 0) + d.revenue);
+
+            // Get Top 5 Products
+            const top5 = Object.entries(prodMap)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+
+            const labels = top5.map(item => item[0]);
+            const values = top5.map(item => item[1]);
+
+            const ctx = document.getElementById('topProductsChart').getContext('2d');
+            if (charts.topProducts) charts.topProducts.destroy();
+
+            charts.topProducts = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Product Revenue',
+                        data: values,
+                        backgroundColor: '#10b981',
+                        borderRadius: 8,
+                        maxBarThickness: 28
+                    }]
+                },
+                options: {
+                    indexAxis: 'y', // Horizontal bar chart
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => 'Revenue: ' + formatExactINR(ctx.raw)
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: { callback: (val) => formatINR(val), font: { size: 11 } },
+                            grid: { color: '#f1f5f9' }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: { font: { size: 11 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ==========================================
+        // 8. DATA PREVIEW TABLE
+        // ==========================================
+        function updateTablePreview() {
+            const tbody = document.getElementById('dataTableBody');
+            if (filteredData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-slate-400">No matching records found.</td></tr>`;
+                return;
+            }
+
+            const previewRows = filteredData.slice(0, 10);
+            tbody.innerHTML = previewRows.map(row => `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="py-3 px-4 whitespace-nowrap font-medium text-slate-600">${row.dateStr}</td>
+                    <td class="py-3 px-4 whitespace-nowrap">
+                        <span class="px-2 py-0.5 text-xs font-medium rounded-md bg-slate-100 text-slate-700">${row.region}</span>
+                    </td>
+                    <td class="py-3 px-4 whitespace-nowrap text-slate-600">${row.category}</td>
+                    <td class="py-3 px-4 font-medium text-slate-800">${row.product}</td>
+                    <td class="py-3 px-4 text-right text-slate-600">${row.units.toLocaleString('en-IN')}</td>
+                    <td class="py-3 px-4 text-right font-semibold text-slate-900">${formatExactINR(row.revenue)}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Initialize Dashboard on Window Load
+        window.onload = function() {
+            loadDataset(SAMPLE_DATA, "Indian Retail Dataset");
+        };
+    </script>
+</body>
+</html>
